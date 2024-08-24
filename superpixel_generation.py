@@ -1,19 +1,19 @@
+import multiprocessing as mp
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
 import cv2
-import sys
-sys.path.append("..")
-from .segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
+from also_selfsup.superpixel_generation.SAM.segment_anything import sam_model_registry, SamAutomaticMaskGenerator, SamPredictor
 import os
 import argparse
 from PIL import Image
 from tqdm import tqdm
-from multiprocessing import Pool
 from nuscenes.nuscenes import NuScenes
+from functools import partial
 
 
-def compute_sam(cam_token, sp_root, save_image=False, scene_index=-1):
+
+def compute_sam(cam_token, mask_generator, nusc, sp_root, save_image=False, scene_index=-1):
     if save_image:
         assert scene_index != -1 
 
@@ -46,6 +46,8 @@ def compute_sam(cam_token, sp_root, save_image=False, scene_index=-1):
 
 def parse_option():
     parser = argparse.ArgumentParser('SAM', add_help=False)
+    parser.add_argument('-v', '--version', help='nuscenes version',
+                        default='v1.0-mini')
     parser.add_argument('-r', '--root_folder', help='root folder of dataset',
                         default='./data/nuscenes')
     parser.add_argument('-s', '--sp_folder', help='superpixels root', type=str,
@@ -64,6 +66,8 @@ def parse_option():
 
 
 if __name__ == "__main__":
+    # mp.set_start_method('spawn')
+
     args = parse_option()
     sam_checkpoint = args.sam_checkpoint
     model_type = "vit_h"
@@ -80,7 +84,7 @@ if __name__ == "__main__":
     assert os.path.exists(nuscenes_path), f"nuScenes not found in {nuscenes_path}"
 
     nusc = NuScenes(
-        version="v1.0-mini", dataroot=nuscenes_path, verbose=False
+        version=args.version, dataroot=f'{nuscenes_path}/{args.version}', verbose=False
     )
     
     # Check if the directory exists
@@ -101,17 +105,27 @@ if __name__ == "__main__":
     ]
 
     num_scenes = len(nusc.scene)
-    for scene_idx in tqdm(range(start_idx, end_idx)):
-        if scene_idx >= num_scenes:
-            break
+    # with mp.Pool(2) as p:
+    for scene_idx in tqdm(range(num_scenes)): #range(start_idx, end_idx)
+        # if scene_idx >= num_scenes:
+        #     break
         scene = nusc.scene[scene_idx]
         scene_name = scene['name']
         print(f'The current scene is {scene_name}')
         current_sample_token = scene["first_sample_token"]
         while current_sample_token != "":
             current_sample = nusc.get("sample", current_sample_token)
+            # func = partial(compute_sam, mask_generator=mask_generator, nusc=nusc, sp_root=args.sp_folder, save_image=args.save_source_images, scene_index=scene_idx)
+            # p.map(
+            #     func,
+            #     [
+            #         current_sample["data"][camera_name]
+            #         for camera_name in camera_list
+            #     ],
+            # )
+
             for camera_name in camera_list:
-                compute_sam(current_sample["data"][camera_name], args.sp_folder, save_image=args.save_source_images, scene_index=scene_idx)
+                compute_sam(current_sample["data"][camera_name], mask_generator=mask_generator, nusc=nusc, sp_root=args.sp_folder, save_image=args.save_source_images, scene_index=scene_idx)
 
             current_sample_token = current_sample["next"]
 
