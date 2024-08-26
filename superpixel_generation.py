@@ -51,7 +51,7 @@ def parse_option():
     parser.add_argument('-r', '--root_folder', help='root folder of dataset',
                         default='./data/nuscenes')
     parser.add_argument('-s', '--sp_folder', help='superpixels root', type=str,
-                        default='./superpixels/nuscenes/superpixels_sam/') 
+                        default='./data/superpixels/nuscenes/superpixels_sam/') 
     parser.add_argument('-p', '--sam_checkpoint', help='path of pretrained model', type=str,
                         default='./sam_vit_h_4b8939.pth')
     parser.add_argument('--start_idx', default=0, help='the start index of the scene from nuscenes to be processed', type=int)
